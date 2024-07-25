@@ -152,6 +152,56 @@ ResourceManager: http://localhost:8088
 4. Configure bucket settings as needed and click Create bucket.
 5. Configure Bucket Policies and IAM
 
+    
+    Bucket Policy that allows everyone to read, but allows only specific users to modify:
+
+    ```
+    {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Effect": "Allow",
+                "Principal": "*",
+                "Action": "s3:GetObject",
+                "Resource": "arn:aws:s3:::bhargavi-aws-test-bucket/*"
+            },
+            {
+                "Effect": "Allow",
+                "Principal": {
+                    "AWS": [
+                        "arn:aws:iam::account_id:user/user1",
+                        "arn:aws:iam::account_id:user/user2",
+                    ]
+                },
+                "Action": [
+                    "s3:PutObject",
+                    "s3:DeleteObject"
+                ],
+                "Resource": "arn:aws:s3:::bhargavi-aws-test-bucket/*"
+            }
+        ]
+    }
+
+If want a group of people to access this bucket, can add IAM policy that allows the IAM group access to modify this particular bucket. 
+
+IAM Policy:
+
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:PutObject",
+                "s3:DeleteObject"
+            ],
+            "Resource": "arn:aws:s3:::your-bucket-name/*"
+        }
+    ]
+}
+```
+
 ### Create IAM Users:
 
 1. Navigate to IAM in the AWS Management Console.
