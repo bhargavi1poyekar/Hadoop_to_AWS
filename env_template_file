@@ -1,0 +1,8 @@
+HDFS_URL=http://your-hdfs-namenode:9870
+HDFS_USER=your-hdfs-username
+HDFS_PATH=/path/to/your/hdfs/file
+S3_BUCKET_NAME=your-s3-bucket-name
+S3_FILE_KEY=path/in/s3/file.txt
+AWS_ACCESS_KEY=YOUR_AWS_ACCESS_KEY
+AWS_SECRET_KEY=YOUR_AWS_SECRET_KEY
+AWS_REGION=us-west-2
