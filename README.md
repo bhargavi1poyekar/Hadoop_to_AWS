@@ -1,156 +1,23 @@
 # HDFS to S3 Data Transfer Application
-This project automates the transfer of files from Hadoop Distributed File System (HDFS) to Amazon S3. The application is built with Python and leverages Hadoop and AWS services for efficient data handling and secure operations.
+This project automates the transfer of files from Hadoop Distributed File System (HDFS) to Amazon S3 by checking if the User has required permission to the file. The application is built with Python and leverages Hadoop and AWS services for efficient data handling and secure operations.
 
-![](https://i.postimg.cc/rFRQtjGv/system-design-drawio.png)
+![](https://i.postimg.cc/5ydpWx39/system-design-drawio-1.png)
 
-## Table of Contents
-- [Prerequisites](#prerequisites)
-- [Installation](#installation)
-- [Hadoop Setup](#hadoop-setup)
-- [S3 Bucket Setup](#s3-bucket-setup)
-- [Usage](#usage)
+## Solution
 
-## Prerequisites
+The file can only be accessed by the users in the company. 
 
-Before setting up the project, ensure you have the following:
+1. Check User Access:
+    * Gets the group associated with the file.
+    * Checks the user's group.
+    * If the user is member of the file's group -> gives permission. 
 
-- **Python 3.6+** installed on your system.
-- **Hadoop** and **AWS CLI** (for S3 operations) installed if you want to set up HDFS and interact with S3.
-- **AWS account** with proper IAM roles for S3 access.
+2. Reads the content of the file from HDFS.
+    * Uses the HDFS client to open and read the file content.
 
-## Installation
-
-1. Clone the Repository**
-
-   ```sh
-   git clone https://github.com/bhargavi1poyekar/Hadoop_to_AWS.git
-   cd Hadoop_to_AWS
-
-2. Create and Activate a Virtual Environment
-
-        python -m venv venv
-        source venv/bin/activate 
-
-3. Install Dependencies
-
-    Install the required Python packages from requirements.txt:
-
-        pip install -r requirements.txt
-
-
-## Hadoop Setup
-If Hadoop is not already set up on your system, follow these steps:
-
-1. Install Java and Download Hadoop 
-    ```sh
-    sudo apt update
-    sudo apt install openjdk-8-jdk wget
-    
-    wget https://downloads.apache.org/hadoop/common/hadoop-3.3.1/hadoop-3.3.1.tar.gz
-    tar -xzvf hadoop-3.3.1.tar.gz
-    sudo mv hadoop-3.3.1 /usr/local/hadoop
-
-2. Configure Hadoop
-
-    Edit Hadoop environment variables:
-
-    ```
-    sudo nano /usr/local/hadoop/etc/hadoop/hadoop-env.sh
-    ```
-    Add the following line:
-    ```sh
-    export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
-
-3. Configure core-site.xml:
-
-```
-    sudo nano /usr/local/hadoop/etc/hadoop/core-site.xml
-```
-
-```sh
-<configuration>
-  <property>
-    <name>fs.defaultFS</name>
-    <value>hdfs://localhost:9000</value>
-  </property>
-</configuration>
-```
-4. Configure hdfs-site.xml:
-
-```
-sudo nano /usr/local/hadoop/etc/hadoop/hdfs-site.xml
-```
-Add:
-
-```
-<configuration>
-  <property>
-    <name>dfs.replication</name>
-    <value>1</value>
-  </property>
-</configuration>
-```
-
-5. Configure mapred-site.xml:
-
-    Copy code
-
-```
-    cp /usr/local/hadoop/etc/hadoop/mapred-site.xml.template /usr/local/hadoop/etc/hadoop/mapred-site.xml
-
-    sudo nano /usr/local/hadoop/etc/hadoop/mapred-site.xml
-
-```
-```
-<configuration>
-  <property>
-    <name>mapreduce.framework.name</name>
-    <value>yarn</value>
-  </property>
-</configuration>
-```
-
-6. Configure yarn-site.xml:
-```
-sudo nano /usr/local/hadoop/etc/hadoop/yarn-site.xml
-```
-
-```
-<configuration>
-  <property>
-    <name>yarn.nodemanager.aux-services</name>
-    <value>mapreduce_shuffle</value>
-  </property>
-  <property>
-    <name>yarn.nodemanager.aux-services.mapreduce.shuffle.class</name>
-    <value>org.apache.hadoop.mapred.ShuffleHandler</value>
-  </property>
-</configuration>
-```
-
-7. Format HDFS and Start Hadoop
-
-```
-/usr/local/hadoop/bin/hdfs namenode -format
-/usr/local/hadoop/sbin/start-dfs.sh
-/usr/local/hadoop/sbin/start-yarn.sh
-```
-
-8. Verify Hadoop Installation
-
-Open your browser and go to:
-
-NameNode: http://localhost:50070
-
-ResourceManager: http://localhost:8088
-
-## Create an S3 Bucket
-
-1. Log in to the AWS Management Console.
-2. Navigate to S3 and click Create bucket.
-3. Enter a bucket name and choose a region.
-4. Configure bucket settings as needed and click Create bucket.
-5. Configure Bucket Policies and IAM
+3. Upload File to S3
+    * Uses the S3 client to put the file content into the specified bucket and key with appropriate bucket policy.
+    * Configure Bucket Policies and IAM
 
     
     Bucket Policy that allows everyone to read, but allows only specific users to modify:
@@ -163,7 +30,7 @@ ResourceManager: http://localhost:8088
                 "Effect": "Allow",
                 "Principal": "*",
                 "Action": "s3:GetObject",
-                "Resource": "arn:aws:s3:::bhargavi-aws-test-bucket/*"
+                "Resource": "arn:aws:s3:::aws-test-bucket/*"
             },
             {
                 "Effect": "Allow",
@@ -177,7 +44,7 @@ ResourceManager: http://localhost:8088
                     "s3:PutObject",
                     "s3:DeleteObject"
                 ],
-                "Resource": "arn:aws:s3:::bhargavi-aws-test-bucket/*"
+                "Resource": "arn:aws:s3:::aws-test-bucket/*"
             }
         ]
     }
@@ -202,12 +69,11 @@ IAM Policy:
 }
 ```
 
-### Create IAM Users:
+Before setting up the project, ensure you have the following:
 
-1. Navigate to IAM in the AWS Management Console.
-2. Create new users and assign them appropriate permissions.
-3. Set Bucket Policies
-4. Set IAM Policies:
+- **Python 3.6+** installed on your system.
+- **Hadoop** and **AWS CLI** (for S3 operations) installed if you want to set up HDFS and interact with S3.
+- **AWS account** with proper IAM roles for S3 access.
 
 
 ## Set Environment Variables
