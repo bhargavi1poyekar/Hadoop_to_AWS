@@ -1,1 +1,6 @@
 .env
+*.gz
+*.tar.gz
+/venv
+/hadoop-*
+instructions.txt
