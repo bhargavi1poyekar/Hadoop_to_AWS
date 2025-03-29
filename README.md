@@ -1,106 +1,122 @@
 # HDFS to S3 Data Transfer Application
-This project automates the transfer of files from Hadoop Distributed File System (HDFS) to Amazon S3 by checking if the User has required permission to the file. The application is built with Python and leverages Hadoop and AWS services for efficient data handling and secure operations.
+This Python application securely transfers files from HDFS to AWS S3 by first verifying user access permissions against the file’s group membership. It performs client-side encryption using Fernet (AES-128-CBC) with keys retrieved from AWS SSM Parameter Store, assumes temporary IAM credentials via STS for secure S3 access, and validates file integrity with checksums. The transfer is monitored via CloudWatch metrics, with success/failure notifications sent through SNS, ensuring an auditable and permission-controlled pipeline without AWS KMS dependencies. All configurations (bucket paths, encryption keys) are dynamically fetched from SSM.
 
-![](https://i.postimg.cc/5ydpWx39/system-design-drawio-1.png)
+![](https://i.postimg.cc/Y9nWqnZJ/system-design-drawio.png)
 
-## Solution
+## Features
 
 The file can only be accessed by the users in the company. 
 
-1. Check User Access:
-    * Gets the group associated with the file.
-    * Checks the user's group.
-    * If the user is member of the file's group -> gives permission. 
+1. User Access Verification (src/hdfs.py)
+* Validates if the current user belongs to the file's group in HDFS.
+* Uses Linux system groups (id -Gn) and HDFS permissions (hadoop fs -stat %g).
+* Prevents unauthorized file access before transfer begins.
 
-2. Reads the content of the file from HDFS.
-    * Uses the HDFS client to open and read the file content.
+2. Client-Side Encryption (src/encyrption.py)
+* Fernet (AES-128-CBC) symmetric encryption.
+* Encryption keys:
+    * Pre-fetched from AWS SSM Parameter Store (already decrypted).
+    * Passed as strings and converted to bytes.
+* Methods:
+    * encrypt_data(): Returns ciphertext + key ID.
+    * decrypt_data(): Reverses the process.
 
-3. Upload File to S3
-    * Uses the S3 client to put the file content into the specified bucket and key with appropriate bucket policy.
-    * Configure Bucket Policies and IAM
+3. AWS Credential Management (src/sts.py)
+* Uses STS (Security Token Service) to assume IAM roles.
+* Generates temporary credentials for secure S3 access.
+* Follows least-privilege principles.
 
-    
-    Bucket Policy that allows everyone to read, but allows only specific users to modify:
+4. S3 Upload (src/upload_s3.py)
+* Uses boto3 with:
+    * Temporary STS credentials.
+    * Checksum verification.
+    * Error handling for network issues.
 
-    ```
-    {
-        "Version": "2012-10-17",
-        "Statement": [
-            {
-                "Effect": "Allow",
-                "Principal": "*",
-                "Action": "s3:GetObject",
-                "Resource": "arn:aws:s3:::aws-test-bucket/*"
-            },
-            {
-                "Effect": "Allow",
-                "Principal": {
-                    "AWS": [
-                        "arn:aws:iam::account_id:user/user1",
-                        "arn:aws:iam::account_id:user/user2",
-                    ]
-                },
-                "Action": [
-                    "s3:PutObject",
-                    "s3:DeleteObject"
-                ],
-                "Resource": "arn:aws:s3:::aws-test-bucket/*"
-            }
-        ]
-    }
+5. Configuration Management (src/config.py)
+* All dynamic values (paths, keys, bucket names) fetched from AWS SSM Parameter Store.
+* Eliminates hardcoded credentials in the codebase.
 
-If want a group of people to access this bucket, can add IAM policy that allows the IAM group access to modify this particular bucket. 
+6. Monitoring & Alerting (src/monitoring.py, src/notifications.py)
+* CloudWatch: Logs transfer metrics (latency, success/failure rates).
+* SNS: Sends real-time notifications to ops team on completion/failure.
 
-IAM Policy:
+## AWS Permissions and Setup:
 
-```
+1. IAM ROLE:
+
+```json
 {
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Effect": "Allow",
-            "Action": [
-                "s3:PutObject",
-                "s3:DeleteObject"
-            ],
-            "Resource": "arn:aws:s3:::your-bucket-name/*"
-        }
-    ]
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::your-bucket-name",
+        "arn:aws:s3:::your-bucket-name/*"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "sts:AssumeRole"
+      ],
+      "Resource": "arn:aws:iam::123456789012:role/S3TransferRole"
+    }
+  ]
 }
 ```
+2. S3 Bucket Policy
 
-Before setting up the project, ensure you have the following:
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::123456789012:role/S3TransferRole"
+      },
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject"
+      ],
+      "Resource": "arn:aws:s3:::your-bucket-name/*"
+    }
+  ]
+}
+```
+   
+## Installation and Running.
 
-- **Python 3.6+** installed on your system.
-- **Hadoop** and **AWS CLI** (for S3 operations) installed if you want to set up HDFS and interact with S3.
-- **AWS account** with proper IAM roles for S3 access.
-
-
-## Set Environment Variables
-
-1. Create a .env file in the project directory and add:
-
+1. Setting up and activating virtual environment. 
     ```
-    HDFS_URL=http://your-hdfs-namenode:50070
-    HDFS_USER=your-hdfs-username
-    HDFS_PATH=/path/to/your/hdfs/file
-    S3_BUCKET_NAME=your-s3-bucket-name
-    S3_FILE_KEY=path/in/s3/file.txt
-    AWS_ACCESS_KEY=YOUR_AWS_ACCESS_KEY
-    AWS_SECRET_KEY=YOUR_AWS_SECRET_KEY
-    AWS_REGION=us-west-2
+    python3 -m venv .venv
+    source .venv/bin/activate
     ```
-3. Activate Virtual Environment:
+
+2. Install the required packages and libraries.
     ```
-    source venv/bin/activate
+    pip install -r requirements.txt
+    ```
+3. Upload the env_template_file config variables to SSM Paramater store. 
 
-2. Run the Application
-
+4. Run the application.
     ```
     python -m src.main
-
-
-
     ```
+
+5. Successful Transfer Log:
+* INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+* INFO:hdfs.client:Instantiated <InsecureClient(url='http://localhost:9870')>.
+* INFO:__main__:Reading file from HDFS: /user/bpoyeka1/local_file.txt
+* INFO:hdfs.client:Reading file '/user/bpoyeka1/local_file.txt'.
+* INFO:__main__:File encrypted successfully
+* INFO:__main__:File uploaded to S3
+
 
 

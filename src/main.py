@@ -1,4 +1,4 @@
-from src.security import get_ssm_parameters
+from src.config import get_ssm_parameters
 from src.encryption import Encryption
 from src.monitoring import TransferMonitor
 from src.notifications import TransferNotifier
