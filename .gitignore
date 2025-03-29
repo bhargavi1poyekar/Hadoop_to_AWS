@@ -4,3 +4,6 @@
 /venv
 /hadoop-*
 instructions.txt
+fernet_key.key 
+local_file.txt
+__pycache__/

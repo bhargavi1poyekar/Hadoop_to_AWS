@@ -1,8 +1,15 @@
-HDFS_URL=http://your-hdfs-namenode:9870
-HDFS_USER=your-hdfs-username
-HDFS_PATH=/path/to/your/hdfs/file
-S3_BUCKET_NAME=your-s3-bucket-name
-S3_FILE_KEY=path/in/s3/file.txt
-AWS_ACCESS_KEY=YOUR_AWS_ACCESS_KEY
-AWS_SECRET_KEY=YOUR_AWS_SECRET_KEY
-AWS_REGION=us-west-2
+# Add these variables in your parameter store. 
+
+aws_region=us-east-1
+encryption_key=YOUR_CLIENT_SIDE_ENCRYPTION_KEY 
+hdfs_path=http://localhost:9870
+hdfs_url=YOUR_PATH_OF_FILE_TO_BE_TRANSFERED
+hdfs_user=YOUR_HDFS_USERNAME
+log_group=YOUR_LOG_GROUP_NAME
+role_arn=YOUR_IAM_ROLE_ARN
+s3_bucket_name=YOUR_S3_BUCKET_NAME
+s3_file_key=YOUR_S3_FILE_KEYNAME
+sns_topic_arn=YOUR_SNS_TOPIC_ARN
+
+
+

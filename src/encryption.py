@@ -1,31 +1,36 @@
+from cryptography.fernet import Fernet
+from typing import Dict
+import os
 import boto3
 from botocore.exceptions import ClientError
 
-class KMSEncryption:
-    def __init__(self, region_name: str, key_id: str):
-        self.client = boto3.client('kms', region_name=region_name)
-        self.key_id = key_id
-
-    def encrypt_data(self, data: bytes) -> dict:
-        """Encrypt data using KMS"""
+class Encryption:
+    def __init__(self, region_name: str = None, encryption_key: str = None):
+        """
+        Initialize with encryption key from pre-fetched config.
+        - `region_name`: Unused (kept for compatibility).
+        - `encryption_key`: Fernet key (already decrypted from SSM).
+        """
         try:
-            response = self.client.encrypt(
-                KeyId=self.key_id,
-                Plaintext=data
-            )
+            self.key = encryption_key.encode()  # Convert string key to bytes
+            self.cipher = Fernet(self.key)
+        except Exception as e:
+            raise
+
+    def encrypt_data(self, data: bytes) -> Dict[str, bytes]:
+        """Encrypt data using local Fernet (AES-128-CBC)"""
+        try:
+            ciphertext = self.cipher.encrypt(data)
             return {
-                'ciphertext': response['CiphertextBlob'],
-                'key_id': response['KeyId']
+                'ciphertext': ciphertext,
+                'key_id': self.key
             }
-        except ClientError as e:
+        except Exception as e:
             raise e
 
     def decrypt_data(self, ciphertext: bytes) -> bytes:
-        """Decrypt data using KMS"""
+        """Decrypt data using local Fernet"""
         try:
-            response = self.client.decrypt(
-                CiphertextBlob=ciphertext
-            )
-            return response['Plaintext']
-        except ClientError as e:
+            return self.cipher.decrypt(ciphertext)
+        except Exception as e:
             raise e

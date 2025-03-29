@@ -3,8 +3,8 @@ from datetime import datetime
 from botocore.exceptions import ClientError
 
 class TransferMonitor:
-    def __init__(self, region_name: str):
-        self.client = boto3.client('cloudwatch', region_name=region_name)
+    def __init__(self, region_name: str, **creds):
+        self.client = boto3.client('cloudwatch', region_name=region_name, **creds)
         self.namespace = "HDFS/S3/Transfer"
 
     def log_metric(self, metric_name: str, value: float, dimensions: list = None):

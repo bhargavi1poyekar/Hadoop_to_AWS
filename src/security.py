@@ -1,32 +1,30 @@
 import boto3
 import json
 from botocore.exceptions import ClientError
+from src.sts import assume_role
 
-def get_secret(secret_name: str, region_name: str) -> dict:
+def get_ssm_parameters(prefix: str, region: str, **creds) -> dict:
     """
-    Retrieve secrets from AWS Secrets Manager
+    Fetch parameters from AWS SSM Parameter Store.
+    Returns them as a dict with keys matching parameter names after the prefix.
     """
-    session = boto3.session.Session()
-    client = session.client(
-        service_name='secretsmanager',
-        region_name=region_name
-    )
 
+    # role_arn = os.getenv("HDFS_IAM_ROLE_ARN")
+    # creds = assume_role(role_arn, "ssm-parameter-access", region)
+        
+    # Step 2: Create SSM client with temporary credentials
+    ssm = boto3.client('ssm', region_name=region, **creds)
+
+    # ssm = boto3.client('ssm', region_name=region)
     try:
-        get_secret_value_response = client.get_secret_value(
-            SecretId=secret_name
+        response = ssm.get_parameters_by_path(
+            Path=prefix,
+            WithDecryption=True  # For SecureString parameters
         )
-        return json.loads(get_secret_value_response['SecretString'])
+        # Transform list of parameters into a dict
+        return {
+            param['Name'].split('/')[-1]: param['Value']
+            for param in response['Parameters']
+        }
     except ClientError as e:
-        raise e
-
-def rotate_credentials(secret_name: str, region_name: str):
-    """
-    Trigger credential rotation
-    """
-    client = boto3.client('secretsmanager', region_name=region_name)
-    try:
-        client.rotate_secret(SecretId=secret_name)
-        return True
-    except ClientError as e:
-        raise e
+        raise Exception(f"SSM Error: {e}")

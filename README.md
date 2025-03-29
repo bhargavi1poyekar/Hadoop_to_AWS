@@ -90,11 +90,14 @@ Before setting up the project, ensure you have the following:
     AWS_SECRET_KEY=YOUR_AWS_SECRET_KEY
     AWS_REGION=us-west-2
     ```
+3. Activate Virtual Environment:
+    ```
+    source venv/bin/activate
 
 2. Run the Application
 
     ```
-    python3 hadoop_to_aws.py
+    python -m src.main
     ```
 
 

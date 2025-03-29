@@ -3,8 +3,8 @@ from botocore.exceptions import ClientError
 from datetime import datetime
 
 class TransferNotifier:
-    def __init__(self, region_name: str, topic_arn: str):
-        self.client = boto3.client('sns', region_name=region_name)
+    def __init__(self, region_name: str, topic_arn: str, **creds):
+        self.client = boto3.client('sns', region_name=region_name, **creds)
         self.topic_arn = topic_arn
 
     def send_notification(self, subject: str, message: str) -> bool:
