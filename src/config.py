@@ -1,30 +1,47 @@
 import boto3
-import json
 from botocore.exceptions import ClientError
 from src.sts import assume_role
 
 def get_ssm_parameters(prefix: str, region: str, **creds) -> dict:
     """
-    Fetch parameters from AWS SSM Parameter Store.
-    Returns them as a dict with keys matching parameter names after the prefix.
+    Retrieves parameters from AWS Systems Manager (SSM) Parameter Store.
+    
+    Fetches all parameters under the specified path prefix and returns them as a dictionary
+    with simplified keys (removing the prefix path). Automatically decrypts SecureString parameters.
+
+    Args:
+        prefix: The path prefix for parameters (e.g., '/hdfs-s3-transfer/')
+        region: AWS region where parameters are stored (e.g., 'us-east-1')
+        **creds: Temporary AWS credentials (typically from STS assume_role) containing:
+            - aws_access_key_id
+            - aws_secret_access_key
+            - aws_session_token
+
+    Returns:
+        Dictionary of parameter names (without prefix) to their values
+
+    Raises:
+        Exception: If SSM access fails or parameters can't be retrieved
     """
 
-    # role_arn = os.getenv("HDFS_IAM_ROLE_ARN")
-    # creds = assume_role(role_arn, "ssm-parameter-access", region)
-        
-    # Step 2: Create SSM client with temporary credentials
+    # Initialize SSM client
     ssm = boto3.client('ssm', region_name=region, **creds)
 
-    # ssm = boto3.client('ssm', region_name=region)
     try:
+        # Retrieve all parameters under the specified path
         response = ssm.get_parameters_by_path(
             Path=prefix,
-            WithDecryption=True  # For SecureString parameters
+            WithDecryption=True,  # Decrypt SecureString parameters
+            Recursive=True        # Get all parameters under the path
         )
-        # Transform list of parameters into a dict
+        
+        # Transform into a clean dictionary {param_name: param_value}
         return {
-            param['Name'].split('/')[-1]: param['Value']
+            param['Name'].removeprefix(prefix): param['Value']
             for param in response['Parameters']
         }
-    except ClientError as e:
-        raise Exception(f"SSM Error: {e}")
+    except ClientError as error:
+        error_msg = f"SSM Parameter Store access failed: {error.response['Error']['Message']}"
+        raise RuntimeError(error_msg) from error
+    except KeyError as error:
+        raise RuntimeError("Malformed SSM response format") from error

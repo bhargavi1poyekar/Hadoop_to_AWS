@@ -1,79 +1,116 @@
 from hdfs import InsecureClient
 import subprocess
+import logging
+from typing import List, Optional
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def read_file_from_hdfs(hdfs_client: InsecureClient, hdfs_path: str) -> str:
     """
-    Read file content from HDFS.
+    Read and return the contents of a file from HDFS with UTF-8 encoding.
 
     Args:
-        hdfs_client (InsecureClient): The HDFS client to use.
-        hdfs_path (str): The path of the file in HDFS.
+        hdfs_client: Authenticated InsecureClient instance for HDFS access
+        hdfs_path: Absolute path to the file in HDFS (e.g., '/user/data/file.txt')
 
     Returns:
-        str: The content of the file.
+        Decoded string content of the file
 
     Raises:
-        Exception: If reading from HDFS fails.
+        HdfsError: If file doesn't exist or isn't readable
+        UnicodeDecodeError: If file contains invalid UTF-8 sequences
+        Exception: For other unexpected errors
     """
     try:
         with hdfs_client.read(hdfs_path, encoding='utf-8') as reader:
-            return reader.read()
+            content = reader.read()
+            logger.info(f"Successfully read {len(content)} bytes from {hdfs_path}")
+            return content
     except Exception as e:
-        print(f"Failed to read from HDFS: {e}")
+        logger.error(f"HDFS read failed for {hdfs_path}: {str(e)}")
         raise
 
 
 def get_file_group(file_path: str) -> str:
     """
-    Retrieve the group associated with a file in HDFS.
+    Retrieve the group ownership of an HDFS file using Hadoop CLI.
 
     Args:
-        file_path (str): The path to the file in HDFS.
+        file_path: Absolute HDFS path (e.g., '/user/data/file.txt')
 
     Returns:
-        str: The group name associated with the file, or None if an error occurs.
+        Group name if successful, None otherwise
     """
     try:
-        result = subprocess.run(['hadoop', 'fs', '-stat', '%g', file_path], capture_output=True, text=True, check=True)
-        return result.stdout.strip()
+        result = subprocess.run(
+            ['hadoop', 'fs', '-stat', '%g', file_path],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        group = result.stdout.strip()
+        logger.debug(f"File {file_path} belongs to group: {group}")
+        return group
     except subprocess.CalledProcessError as e:
-        print(f"Error getting file group:{e}")
+        logger.error(f"HDFS group check failed for {file_path}: {e.stderr.strip()}")
         return None
 
 
-def get_user_groups(user: str) -> list[str]:
+def get_user_groups(user: str) -> List[str]:
     """
-    Retrieve the groups that a user belongs to on the local system.
+    Get system group memberships for a user via 'id' command.
 
     Args:
-        user (str): The username to query.
+        user: System username to check
 
     Returns:
-        list[str]: A list of group names that the user belongs to.
+        List of group names (empty list on failure)
     """
     try:
-        result = subprocess.run(['id', '-Gn', user], capture_output=True, text=True, check=True)
-        return result.stdout.strip().split()
+        result = subprocess.run(
+            ['id', '-Gn', user],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        groups = result.stdout.strip().split()
+        logger.debug(f"User {user} belongs to groups: {groups}")
+        return groups
     except subprocess.CalledProcessError as e:
-        print(f"Error getting user groups: {e}")
+        logger.error(f"Failed to get groups for user {user}: {e.stderr.strip()}")
         return []
 
 
 def check_user_access(file_path: str, user: str) -> bool:
     """
-    Check if a user has access to a file in HDFS based on group membership.
+    Verify if a user has group-based access to an HDFS file.
 
     Args:
-        file_path (str): The path to the file in HDFS.
-        user (str): The username to check.
+        file_path: HDFS path to check
+        user: Username to validate
 
     Returns:
-        bool: True if the user’s group matches the file’s group, False otherwise.
+        bool: True if user's groups include the file's group owner
+
+    Logic Flow:
+        1. Get file's group owner
+        2. Get user's system groups
+        3. Check for intersection
     """
+
     file_group = get_file_group(file_path)
     if not file_group:
+        logger.warning(f"Could not determine group for {file_path}")
         return False
+
     user_groups = get_user_groups(user)
-    if file_group in user_groups:
-        return True
-    return False 
+    access_granted = file_group in user_groups
+
+    logger.info(
+        f"Access check for {user} to {file_path}: "
+        f"File Group={file_group}, User Groups={user_groups}, "
+        f"Access={'GRANTED' if access_granted else 'DENIED'}"
+    )
+    return access_granted
